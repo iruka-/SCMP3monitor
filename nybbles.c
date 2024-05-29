@@ -8,11 +8,20 @@
 #include <string.h>
 #include <fcntl.h>
 #include <signal.h>
+
+#ifndef _MSDOS_
 #include <termios.h>
+#endif
+
 #include <time.h>
 #include <unistd.h>
 #include <errno.h>
+
+#ifndef _MSDOS_
 #include <sys/select.h>
+#define TERMINAL_INIT
+#endif
+
 #include "ns807x.h"
 
 
@@ -29,8 +38,14 @@ static unsigned trace;
 struct ns8070 *cpu;
 static uint8_t pendc;			/* Pending char */
 struct timespec pastTime;
+void print_vcount();
 
 
+
+#ifdef TERMINAL_INIT
+
+unsigned int next_char(void);
+int64_t get_cputime();
 
 int check_chario(void)
 {
@@ -57,6 +72,56 @@ int check_chario(void)
 		r |= 2;
 	return r;
 }
+
+void ns8070_emu_chario(void)
+{
+	if (check_chario() & 1) {
+		pendc  = next_char();
+		/* The TinyBASIC expects break type conditions
+		 that persist for a while - this is a fudge */
+		if (pendc == 3)
+			ns8070_set_a(cpu, 0);
+		else
+			ns8070_set_a(cpu, 1);
+	}
+}
+
+static struct termios saved_term, term;
+
+static void cleanup(int sig)
+{
+	tcsetattr(0, TCSADRAIN, &saved_term);
+	done = 1;
+}
+
+static void exit_cleanup(void)
+{
+	tcsetattr(0, TCSADRAIN, &saved_term);
+	int64_t t = get_cputime();
+	print_vcount(t);
+}
+
+void terminal_init()
+{
+	if (tcgetattr(0, &term) == 0) {
+		saved_term = term;
+		atexit(exit_cleanup);
+		signal(SIGINT, cleanup);
+		signal(SIGQUIT, cleanup);
+		signal(SIGPIPE, cleanup);
+		term.c_lflag &= ~(ICANON | ECHO);
+		term.c_cc[VMIN] = 0;
+		term.c_cc[VTIME] = 1;
+		term.c_cc[VINTR] = 0;
+		term.c_cc[VSUSP] = 0;
+		term.c_cc[VSTOP] = 0;
+		tcsetattr(0, TCSADRAIN, &term);
+	}
+}
+#else
+void terminal_init() {}
+void ns8070_emu_chario(void) {}
+#endif
 
 int  ns8070_emu_getc(void)
 {
@@ -103,18 +168,7 @@ unsigned int next_char(void)
 }
 
 
-void ns8070_emu_chario(void)
-{
-	if (check_chario() & 1) {
-		pendc  = next_char();
-		/* The TinyBASIC expects break type conditions
-		 that persist for a while - this is a fudge */
-		if (pendc == 3)
-			ns8070_set_a(cpu, 0);
-		else
-			ns8070_set_a(cpu, 1);
-	}
-}
+
 
 int64_t get_cputime() {
 	struct timespec currentTime;
@@ -135,41 +189,6 @@ int64_t get_cputime() {
 	pastTime = currentTime;
 	return diffu;
 }
-
-static struct termios saved_term, term;
-
-static void cleanup(int sig)
-{
-	tcsetattr(0, TCSADRAIN, &saved_term);
-	done = 1;
-}
-void print_vcount();
-
-static void exit_cleanup(void)
-{
-	tcsetattr(0, TCSADRAIN, &saved_term);
-	int64_t t = get_cputime();
-	print_vcount(t);
-}
-
-void terminal_init()
-{
-	if (tcgetattr(0, &term) == 0) {
-		saved_term = term;
-		atexit(exit_cleanup);
-		signal(SIGINT, cleanup);
-		signal(SIGQUIT, cleanup);
-		signal(SIGPIPE, cleanup);
-		term.c_lflag &= ~(ICANON | ECHO);
-		term.c_cc[VMIN] = 0;
-		term.c_cc[VTIME] = 1;
-		term.c_cc[VINTR] = 0;
-		term.c_cc[VSUSP] = 0;
-		term.c_cc[VSTOP] = 0;
-		tcsetattr(0, TCSADRAIN, &term);
-	}
-}
-
 
 static void usage(void)
 {

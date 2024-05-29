@@ -47,18 +47,6 @@ static const uint8_t iorom[] = {
 static inline uint8_t mread(struct ns8070 *cpu, uint16_t addr)
 {
 	return cpu->rom[addr];
-#if 0
-	if (addr < RAM_END) {
-		return cpu->rom[addr];
-	}
-    if (addr >= 0xFD00) {
-        return cpu->rom[addr];
-	}
-	if (addr == 0xFCFF) {
-		return ns8070_emu_getc();
-	}
-	return 0xFF;
-#endif
 }
 
 static inline uint16_t mread16(struct ns8070 *cpu, uint16_t addr)
@@ -71,27 +59,6 @@ static inline uint16_t mread16(struct ns8070 *cpu, uint16_t addr)
 static inline void mwrite(struct ns8070 *cpu, uint16_t addr, uint8_t val)
 {
 	cpu->rom[addr] = val;
-#if 0
-    if (addr >= 0xFD00) {
-        cpu->rom[addr] = val;
-        return;
-	}
-    if (addr < RAM_END) {
-		if (addr < 0xA00) {
-			if (cpu->trace) {
-				fprintf(stderr, "Write to ROM 0x%04X<-%02X\n", addr, val);
-			}
-			return;
-		}
-        cpu->rom[addr] = val;
-		return;
-	}
-	if (addr == 0xFCFF) {
-    	val &= 0x7F;
-		ns8070_emu_putc(val);
-		return;
-    }
-#endif
 }
 
 void flag_change(struct ns8070 *cpu, uint8_t fbits)
@@ -617,7 +584,7 @@ static inline unsigned int execute_high(struct ns8070 *cpu)
     uint8_t mode = cpu->i & 0x07;
     uint8_t op = cpu->i & 0xF8;
     uint16_t val;
-    uint16_t addr;
+    uint16_t addr = 0;
     unsigned int immed = 0;
     unsigned int cost = 0;
 
@@ -1102,6 +1069,18 @@ unsigned int ns8070_executes(struct ns8070 *cpu)
 	return 0;
 }
 
+#ifdef _MSDOS_
+
+void print_vcount(int64_t usec)
+{
+	fprintf(stderr,	"\n");
+	fprintf(stderr,	"icount = %I64d\n",icount);
+	fprintf(stderr,	"clocks = %I64d\n",clocksum);
+	fprintf(stderr,	"  usec = %I64d\n",usec  );
+	fprintf(stderr,	"  MIPS = %I64d\n",icount   / usec);
+	fprintf(stderr,	"CPU MHz= %I64d\n",clocksum / usec);
+}
+#else
 void print_vcount(int64_t usec)
 {
 	fprintf(stderr,	"\n");
@@ -1111,6 +1090,7 @@ void print_vcount(int64_t usec)
 	fprintf(stderr,	"  MIPS = %ld\n",icount   / usec);
 	fprintf(stderr,	"CPU MHz= %ld\n",clocksum / usec);
 }
+#endif
 
 void ns8070_reset(struct ns8070 *cpu)
 {

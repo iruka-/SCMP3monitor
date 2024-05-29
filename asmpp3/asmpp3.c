@@ -88,7 +88,7 @@
 #define delfile(fname) if ( midfile == 0 ) unlink(fname)
 #define OP0(inst) {noop (inst) 	   ; 			return(1);}
 #define OP1(inst) {oneop(inst,dst) ;			return(1);}
-#define OP2(inst) {c=getstoken(src);twoop(inst,dst,src);return(1);}
+#define OP2(inst) {c=getstoken(src);twoopImm(inst,dst,src);return(1);}
 #define OP20(inst) {c=getstoken(src);oneop(inst,dst);return(1);}   // SR SL.
 #define ret(i)    {id=i;goto gret;}
 #define	spskip(p) {while((*p==' ')||(*p=='\t')) p++;}
@@ -1272,11 +1272,10 @@ void outrem(char *s)
 	return(c);
 }*/
 
-//セグメント付きトークン.
+//  オフセット付きトークン.
 int	getstoken(char *s)
 {
 	int c,c1,c2;
-//	char buf[MAXLINE];
 	c=getnptoken(s);
 	c1=*lp;
 	c2=lp[1];
@@ -1298,7 +1297,8 @@ int	getstoken(char *s)
 	}
 	return(c);
 }
-//セグメント付きトークン.
+//  オフセット付きトークン.
+//  （左辺値）
 int	getstoken2(char *s)
 {
 	int c,c1;
@@ -1339,7 +1339,7 @@ int	getptoken(char *s)
 }
 
 
-//  ？(hl) を得る.
+//                                     ？(hl) を得る.
 //  '(' で始まり ')'で終わる場合を含むトークンを得る.
 int	getnptoken(char *s)
 {
@@ -1401,6 +1401,9 @@ int	peektoken(char *s)
 	strcpy(s,token);
 	return(tokenid);
 }
+//
+//  トークンを切り出す
+//  
 int	gettoken(char *s)
 {
 	int c,t,id;
@@ -1470,9 +1473,9 @@ GT0:
 		}
 		if(  t == ':'  ) ret(PUBLAB);
 		break;
-	case MUL:
-//		int ptrid=0;
-//		int ptrinc=0;
+
+	case MUL:  // (*)
+	  {
 		int ptrlen=0;
 		int p2;
 		if((t=='p')||(t=='P')) {
@@ -1482,10 +1485,8 @@ GT0:
 				int t4=lp[3];
 				//ptrid= 2 + (t2-'2');
 				if((t3=='+')&&(t4=='+')) {
-//					ptrinc=1;
 					ptrlen=4;
 				}else{
-//					ptrinc=0;
 					ptrlen=2;
 				}
 				s++;
@@ -1494,6 +1495,7 @@ GT0:
 				return PTROP2;
 			}
 		}
+	  }
 		break;
 	case '{':
 		if( t =='*') {
@@ -1510,6 +1512,10 @@ gret:
 	*s=0;
 	return(id);
 }
+
+//
+//  コメントを読み飛ばす
+//  
 int remskips(int f)
 {
 	lp++;
@@ -1529,6 +1535,9 @@ int remskips(int f)
 	}
 	return 0;
 }
+//
+//  アセンブラ行出力
+//
 void outasm(void)
 {
 	while(1) {
@@ -1552,6 +1561,9 @@ int getid(char *s)
 	spskip(lp);
 	c= *lp;
 	if(c==0) return(0);
+	//
+	//  文字列リテラル（クォート文字列の始まり）
+	//
 	if((c=='\'')||(c=='\"')) {
 		while( *lp ) {
 			*p++ = *lp++;
@@ -1564,6 +1576,9 @@ int getid(char *s)
 		*p=0;
 		return(LITERAL);
 	}
+	//
+	//  昔の表記 $ で始まる16進.
+	//
 	if(c=='$') {
 		lp++;
 		*p++='0';
@@ -1575,6 +1590,9 @@ int getid(char *s)
 		*p=0;
 		return(NUM);
 	}
+	//
+	//  # による 即値表現 (ラベル値を即値として扱いたいとき)
+	//
 	if(c=='#') {
 		*p++ = *lp++;
 		while( *lp ) {
@@ -1584,11 +1602,17 @@ int getid(char *s)
 		*p=0;
 		return(ID);
 	}
+	//
+	// 英数字でない.
+	//
 	if(!isan(c)) {
 		*p++ = *lp++;
 		*p=0 ;
 		return(c);
 	}
+	//
+	// 英数字である.
+	//
 	*p++ = *lp++;
 	if(isnum(c) && ( ( (*lp) | 0x20)=='x' ) ) {
 		lp++;
@@ -1597,10 +1621,12 @@ int getid(char *s)
 			if(!isan(*lp)) break;
 			*p++ = *lp++;
 		}
-//		*p++='h';
 		*p=0;
 		return(NUM);
 	}
+	//
+	// 英数字で無くなるまで.
+	//
 	while( *lp ) {
 		if(!isan(*lp)) break;
 		*p++ = *lp++;
@@ -1721,6 +1747,9 @@ int getlnx(void)
 	return(0);
 }
 
+//
+//  #include "ソース"
+//
 int include_src(char *s)
 {
 	int c;
@@ -1742,7 +1771,9 @@ int include_src(char *s)
 //	ugflg=0;
 	return 0;
 }
-
+//
+//  識別子 (s)が来ることを仮定。来ない場合はエラー.
+//
 void seq(char *s)
 {
 	char buf[MAXLINE];
@@ -1763,10 +1794,16 @@ int nump(int *n)
 	}
 	return(1);
 }
+//
+//  数字
+//
 int isnum(int c)
 {
 	return((c>='0') && (c<='9'));
 }
+//
+//  英字
+//
 int isal(int c)
 {
 	if( (c>='A') && (c<='Z') )return (1);
@@ -1774,6 +1811,9 @@ int isal(int c)
 	if( (c == '_' ) || (c == '@' ) ) return (1);
 	return(0);
 }
+//
+//  英数字.
+//
 int isan(int c)
 {
 	if(isnum(c))return (1);
