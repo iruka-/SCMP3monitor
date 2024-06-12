@@ -13,6 +13,9 @@
 wk1  = 0xff80
 cnt1 = 0xff81
 cnt2 = 0xff82
+r4   = 0xff83
+p4   = 0xff84
+p5   = 0xff86
 
 #endasm
 // スタート
@@ -38,19 +41,117 @@ main()
 {
 	p2=#msg1;puts();	
 
-	p2=0;mdump();
-	exit();
+//	p2=0;mdump();
+//	exit();
 
 	while(1) {	
-		getc();
-		e=a;
-		if(a!=0) break;
+		a='>';putc();
+		p2=#inbuf;gets();
+
+		// ECHO BACK.
+		p2=#inbuf;puts();
+
+		//
+		p2=#inbuf;cmd();
 	}
-	a=e;putc();	
-
-
 	exit();
 }
+
+
+// P2 ポインタの１行バッファをcmd解釈.
+// ワーク：
+//    p4 = readhex()の戻り値.
+//    p5 = 注目メモリーアドレスを覚えておく.
+cmd()
+{
+	a=*p2++;lc();e=a;
+	if(e=='d') {
+		sp_skip();
+		readhex();
+		if(a!=0) {
+			ea=p4;
+			p5=ea;
+		}
+		ea=p5;p2=ea;mdump(); //メモリーダンプの実行.
+
+		ea=p5;ea+=0x100;p5=ea;
+	}	
+	if(e=='q') {
+		exit();
+	}	
+}
+
+// ==========================================
+// 入力関数
+
+// P2 ポインタの空白文字飛ばし.
+sp_skip()
+{
+	a=*p2;
+	while(a==' ') {
+		a=*p2++;  // p2++ だけしたい.
+		a=*p2;
+	}
+}
+
+p4mul16()
+{
+	push(ea);
+	ea=p4;
+	sl(ea);
+	sl(ea);
+	sl(ea);
+	sl(ea);
+	p4=ea;
+	pop(ea);
+}
+
+// P2 ポインタから16進HEX読み. ==> p4に結果. 入力された桁数=Areg
+readhex()
+{
+	ea=0;
+	p4=ea;
+	r4=a;
+	while(1) {
+		a=*p2++;e=a;
+		readhex1();e=a;
+		if(e!=0xff) {
+			p4mul16();
+			a=e;
+			e<>a; a=0; e<>a; //e=0;
+			ea+=p4;
+			p4=ea;
+			a=r4;a+=1;r4=a;
+		}else{
+			a=r4;
+			return;
+		}
+	}
+}
+
+readhex1()
+{
+	lc();e=a;
+	if(e>='0') {
+		if(e<0x3a) { // <='9'
+			a=e;
+			a-=0x30;
+			return;
+		}
+	}
+	if(e>='a') {
+		if(e<'g') {
+			a=e;
+			a-=0x57;  // 0x61 - 10
+			return;
+		}
+	}
+	a=0xff;
+}
+
+
+// ==========================================
+// 出力関数
 
 //  アスキーダンプ１行
 ascdump_16()
@@ -77,14 +178,41 @@ ascdump_8()
 ascdump1()
 {
 	e=a;
-	if(a<#0x20) {
+	if(e<0x20) {
 		a=' ';e=a;
 	}
-	a=e;
-	if(a>=#0x7f) {
+	if(e>=0x7f) {
 		a=' ';e=a;
 	}
 	a=e;putc();
+}
+
+//  大文字にする.
+uc()
+{
+	e=a;
+	if(e>='a') {
+		if(e<0x7b) {  // <='z'
+			a=e;
+			a-=0x20;
+			return;
+		}
+	}
+	a=e;
+}
+
+//  小文字にする.
+lc()
+{
+	e=a;
+	if(e>='A') {
+		if(e<0x5b) {  // <='Z'
+			a=e;
+			a+=0x20;
+			return;
+		}
+	}
+	a=e;
 }
 
 
@@ -109,10 +237,10 @@ mdump_16()
 	mdump_8();
 
 // ASCII DUMP
-	ea=p2;ea-=#16;
+	ea=p2;ea-=16;
 	ascdump_16();
 
-	pr_crlf();
+	put_crlf();
 }
 
 //  メモリーダンプ8byte
@@ -155,14 +283,14 @@ prhex2()
 prhex1()
 {
 	push(ea);
-	a&=#0x0f;
+	a&=0x0f;
 	e=a;
 	if( a >= 10) {
-		a=e;a+=#7;
+		a=e;a+=7;
 	}else{
 		a=e;
 	}
-	a += #0x30;
+	a += 0x30;
 	putc();
 	pop(ea);
 }
@@ -173,7 +301,7 @@ pr_spc()
 }
 
 //  改行コード出力
-pr_crlf()
+put_crlf()
 {
 	a=0x0d;putc();
 	a=0x0a;putc();
@@ -189,11 +317,31 @@ puts()
 	}while(1);	
 }
 
+//  文字列入力( P2 ) 0x0a + ヌル終端.
+gets()
+{
+	do {
+		getc();
+		*p2++=a;
+		e=a;
+		if(e==0x0a) break;
+		if(e==0x0d) break;
+	}while(1);	
+
+	a=0; *p2++=a;
+}
+
 //  文字列サンプル
-msg1: 
-	db("abcdefg");
+msg1:
+	db(" * SC/MP-III Monitor *");
 	db(0x0d);
 	db(0x0a);
+	db(0);
+
+inbuf:
+	ds(128);
+
+bufend:
 	db(0);
 
 

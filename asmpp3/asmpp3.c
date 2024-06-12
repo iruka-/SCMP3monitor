@@ -297,14 +297,12 @@ static char *extnam[6] = {
 static int  pro_model= 0;
 static int  pro_exec = MASM;
 static int  midfile=0;
-//static const char *spargv[MAXOBJ+8];
+
 void usage(void)
 {
 	printf(
 	    "Syntax is: Asmpp3 [ options ] file[s]\n"
 	    "	-S	generate assembly\n"
-	    "	-e	generate executable\n"
-	    "	-c	generate .com file \n"
 	    "	-r	Insert remarks\n"
 	    "	-v	View output\n"
 	    "	-t	noTab\n"
@@ -880,11 +878,20 @@ int	isreg(char *s)
 	if(str_cmpi(s,"pc")==0) return 1;
 	return 0;
 }
+int	is_ereg(char *s)
+{
+	if(str_cmpi(s,"e")==0) return 1;
+	return 0;
+}
 int	iszero(char *s)
 {
 	if( (s[0]=='0')&&(s[1]==0) ) return(1);
 	return(0);
 }
+
+//  ================================================
+//  if (   )  内の条件を処理
+//  ================================================
 //  do { } while( COND. ) のときのみf=1;
 int	conditional(int f)
 {
@@ -898,15 +905,14 @@ int	conditional(int f)
 		c1=gettoken(op1);
 		revcon ^=1;
 	};
+
+	//
+	// いきなり--
+	//
 	c1=peektoken(op1);
 	if(c1==IMINUS) {
 		gettoken(op1);
 		getstoken(op1);
-//		if(f) {
-//			if( (strcmp("cx",op1)==0) || (strcmp("CX",op1)==0) ) {
-//				return(JCXZ ^revcon);
-//			}
-//		}
 		twoopImm("dld","A",op1);
 		c2=peektoken(op2);
 		if( (c2== ')')||(c2== ';') ) {
@@ -948,6 +954,9 @@ _or3:
 		return(BRN^revcon);
 	}
 //_label2:
+	//
+	// if( op1 c2 op3 ) { で、 c2 は比較演算子.
+	//
 	c2=gettoken(op2);
 	getstoken(op3);
 	switch(c2) {
@@ -977,15 +986,39 @@ _or3:
 		return(BRN^revcon);
 	}
 _or:
+	//
+	//  op1がレジスタ  op3が ゼロ 、つまり JZかJNZ
+	//
 	if( isreg(op1) && iszero(op3) ) {
+		if( is_ereg(op1) ) {
+			twoop("ld","a",op1); // A=E
+		}
 //		twoop("or",op1,op1);  OR命令要らない.
 		return(jc^revcon);
 	}
 _cmp:
+	//
+	//  引き算する.
+	//
+	if( is_ereg(op1) ) {
+		twoop("ld","a",op1); // A=E
+		twoopImm("sub","a",op3);
+		//	printf("_sub jc=%d revcon=%d\n",jc,revcon);
+		return(jc^revcon);
+	}
 	twoopImm("sub",op1,op3);
 //	printf("_sub jc=%d revcon=%d\n",jc,revcon);
 	return(jc^revcon);
+
 _test:
+	//
+	// & でビット演算.
+	//
+	if( is_ereg(op1) ) {
+		twoop("ld","a",op1); // A=E
+		twoopImm("and","a",op3);
+		return(jc^revcon);
+	}
 	twoopImm("and",op1,op3);
 	return(jc^revcon);
 }

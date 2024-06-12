@@ -2,7 +2,7 @@
 #
 #
 #################################################################
-#	ƒRƒ“ƒpƒCƒ‰‚Í MinGw gcc‚ðŽg—p‚µ‚Ü‚·B
+#	ã‚³ãƒ³ãƒ‘ã‚¤ãƒ©ã¯ MinGw gccã‚’ä½¿ç”¨ã—ã¾ã™ã€‚
 #################################################################
 # REMOVE DEFAULT MAKE RULE
 MAKEFLAGS = -r
@@ -21,7 +21,7 @@ all1:	nybbles
 all3:	nibl3
 
 #============================
-# DOS‚©‚Ç‚¤‚©ƒ`ƒFƒbƒN.
+# DOSã‹ã©ã†ã‹ãƒã‚§ãƒƒã‚¯.
  ifdef ComSpec
 MSDOS=1
  endif
@@ -51,6 +51,9 @@ moni3:	asmpp
 	cat    moni3.lst
 
 run:	nybbles.exe
+	./nybbles.exe -r moni3.bin
+
+trace:	nybbles.exe
 	./nybbles.exe -r moni3.bin -d 7     2>trace.log
 
 
@@ -59,14 +62,7 @@ asmpp:
 #
 # Test (SC/MP-III)
 #
-tr:
-	./nybbles -d 7   2>trace.log
 
-trace:
-	./nybbles -d 7   2>trace.log
-
-test:	nibl3
-	./nybbles
 
 
 #

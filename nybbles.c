@@ -19,7 +19,7 @@
 
 #ifndef _MSDOS_
 #include <sys/select.h>
-#define TERMINAL_INIT
+//#define TERMINAL_INIT
 #endif
 
 #include "ns807x.h"
@@ -118,10 +118,6 @@ void terminal_init()
 		tcsetattr(0, TCSADRAIN, &term);
 	}
 }
-#else
-void terminal_init() {}
-void ns8070_emu_chario(void) {}
-#endif
 
 int  ns8070_emu_getc(void)
 {
@@ -166,6 +162,42 @@ unsigned int next_char(void)
 	
 	return c;
 }
+
+#else
+// MSDOS:::
+
+void terminal_init() {}
+void ns8070_emu_chario(void) {}
+
+int  ns8070_emu_getc(void)
+{
+	char c;
+	c = getchar();
+	if (c == 0x0A) {
+//		c = '\r';
+	}
+	if (c == 0x1a) { // ^Z
+		exit(1);
+	}
+	if (c == 0x1b) { // ESC
+		exit(1);
+	}
+	if (c == 0x7f) { // ESC
+		c = 0x08;
+	}
+//	if( (c>='a')&&(c<='z') ) {c=c-0x20;}
+	
+	
+	return c;
+}
+
+void ns8070_emu_putc(char r)
+{
+	putchar(r);
+}
+
+#endif
+
 
 
 
