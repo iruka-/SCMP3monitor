@@ -699,6 +699,9 @@ int	expr(void)
 		}
 		
 		c=getstoken2(src);
+		//
+		//  代入文 DST = SRC
+		//
 //printf("1) c=0x%x %s\n",c,src);
 		if(c==ASSIGN) {
 			c=getstoken(src);
@@ -719,35 +722,16 @@ int	expr(void)
 				twoopImm("st",src,dst);
 				return(1);
 			}
-
-			c=gettoken(src);
-			switch(c) {
-			case PLUS:
-				c=ASPLUS ;
-				break;
-			case MINUS:
-				c=ASMINUS;
-				break;
-			case DIV:
-				c=ASDIV  ;
-				break;
-			case MUL:
-				c=ASMUL  ;
-				break;
-			case OR:
-				c=ASOR   ;
-				break;
-			case AMPER:
-				c=ASAMPER;
-				break;
-			case XOR:
-				c=ASXOR  ;
-				break;
-			default:
-				errsyntax("Both Operand are the same",src);
-				return(0);
+			{
+				// 代入先が メモリー( STore )で、ソースがImmを仮定.
+				twoopImm("ld","a",src);
+				twoopImm("st","a",dst);
+				return(1);
 			}
-		}
+			errsyntax("Both Operand are the same",src);
+			return(0);
+		} // 代入ここまで.
+		
 		if(c==XCHG) {
 			c=getstoken(src);
 			// 代入先がレジスタ.

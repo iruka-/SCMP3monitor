@@ -45,12 +45,12 @@ WIN32LIB=
 CFLAGS = -Wall -O3 $(DOSFLAGS)
 
 moni3:	asmpp
-	asmpp3/asmpp3.exe -S moni3.m
+	asmpp3/asmpp3.exe -r -S moni3.m
 	asl -L moni3.asm
 	p2bin  moni3.p
 	cat    moni3.lst
 
-run:	nybbles.exe
+run:	nybbles.exe asmpp
 	./nybbles.exe -r moni3.bin
 
 trace:	nybbles.exe

@@ -40,9 +40,8 @@ exit()
 main()
 {
 	p2=#msg1;puts();	
-
-//	p2=0;mdump();
-//	exit();
+	
+//	benchmark();
 
 	while(1) {	
 		a='>';putc();
@@ -57,6 +56,33 @@ main()
 	exit();
 }
 
+benchmark()
+{
+	cnt1=0;
+	do {
+		cnt2=0;
+		do {
+			bench_subr();
+		}while(--cnt2);
+	}while(--cnt1);
+	p2=#msg1;puts();	
+	exit();
+}
+
+bench_subr()
+{
+	p4=0;
+	do {
+		bench_subr2();
+	}while(--p4);
+}
+bench_subr2()
+{
+	push(ea);
+	push(ea);
+	pop(ea);
+	pop(ea);
+}
 
 // P2 ポインタの１行バッファをcmd解釈.
 // ワーク：

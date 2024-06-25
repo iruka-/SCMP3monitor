@@ -166,7 +166,18 @@ unsigned int next_char(void)
 #else
 // MSDOS:::
 
-void terminal_init() {}
+int64_t get_cputime();
+
+static void exit_cleanup(void)
+{
+	int64_t t = get_cputime();
+	print_vcount(t);
+}
+
+void terminal_init() 
+{
+	atexit(exit_cleanup);
+}
 void ns8070_emu_chario(void) {}
 
 int  ns8070_emu_getc(void)
